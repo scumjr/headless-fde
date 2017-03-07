@@ -1,25 +1,27 @@
 A [lot of techniques](https://www.google.com/search?q=headless+full+disk+encryption)
 exist to install headless servers with full disk encryption: PXE + VNC,
-debootstrap, QEMU, local install in a VM + dd, etc. I tend to find them hackish
-and ended up to use another option. I'm pretty sure that it's already explained
-elsewhere but didn't find it on the Internet, so here it is.
+debootstrap, QEMU, local installation in a VM + dd, etc. I tend to find them
+hackish and ended up to use another option. I'm pretty sure that it's already
+explained elsewhere but didn't find it on the Internet, so here it is.
 
-Basically, the `initrd.gz` of a Debian-like netboot install is customized to
-provide a remote shell through SSH at the beginning of the install thanks to the
+Basically, the `initrd.gz` of a Debian-like netboot installation is customized
+to provide a remote shell through SSH at the beginning of the installation
+thanks to the
 [preseeding method](https://www.debian.org/releases/stable/mips/apb.html). It
 allows to install the distro as usual, but remotely. A custom script is run just
-before the install finishes to setup the packages which will allow to unlock the
-disk remotely at each reboot. This was successfully tested with Ubuntu 16.10.
+before the installation finishes to setup the packages which will allow to
+unlock the disk remotely at each reboot. This was successfully tested with
+Ubuntu 16.10.
 
-3 different SSH servers are involved during the install of the server:
+3 different SSH servers are involved:
 
-- *#1*. Temporary OpenSSH server, specific to the install
+- *#1*. Temporary OpenSSH server, specific to the installation
 - *#2*. Dropbear server, used in conjunction with initramfs to unlock the disk
 - *#3*. OpenSSH server
 
 Servers *#1* and *#2* share the same `authorized_keys` (embedded in the custom
 `initrd.gz`), while the authentication on server *#3* is made with the
-login/password provided during the install.
+login/password provided during the installation.
 
 
 
@@ -68,7 +70,7 @@ Apply the changes and reboot to the custom `initrd.gz`:
 
 
 
-# Server install through SSH
+# Server installation through SSH
 
 The server will boot on the custom `initrd.gz` and begin the installation.
 Since a few packages will be fetched and installed from the Internet, it can
@@ -81,8 +83,8 @@ take a while until the SSH server *#1* is launched. Please note that the user is
     Are you sure you want to continue connecting (yes/no)? 
 
 We don't want to remember the public key of this server since it's specific to
-the install, hence the `UserKnownHostsFile` option. You should check that the
-fingerprint is the same than the one displayed by this command:
+the installation, hence the `UserKnownHostsFile` option. You should check that
+the fingerprint is the same than the one displayed by this command:
 
     $ ssh-keygen -lf conf/ssh_host_rsa_key
     2048 SHA256:2a2c/hF2rcJ95OMqUKIazgY1UnxGyeVRkNVaiZk30RY user@laptop (RSA)
@@ -103,7 +105,7 @@ installed system. If you're paranoid, you might read the optional final section.
 ## Remote unlock
 
 Connection to the Dropbear SSH server (*#2*) using the same SSH private key than
-the one used during the install and the `unlock` command unlocks the disk.
+the one used during the installation and the `unlock` command unlocks the disk.
 
     $ ssh -o UserKnownHostsFile=/dev/null -o FingerprintHash=md5 -i ./conf/id_rsa root@172.16.111.13
     The authenticity of host '172.16.111.13 (172.16.111.13)' can't be established.
@@ -163,10 +165,10 @@ during the install. Yeah!
 
 # Optional tips for the paranoids
 
-During the install, one can connect to the server within another SSH session to
-get a shell (just select the "Start shell" option) and display the fingerprints
-of the SSH host keys generated during the installation of the Dropbear and
-openssh-server packages:
+During the installation, one can connect to the server within another SSH
+session to get a shell (just select the "Start shell" option) and display the
+fingerprints of the SSH host keys generated during the installation of the
+Dropbear and openssh-server packages:
 
     $ ssh -o UserKnownHostsFile=/dev/null -i ./conf/id_rsa installer@172.16.111.13
     ...
