@@ -188,7 +188,9 @@ Dropbear and openssh-server packages:
     Fingerprint: md5 6b:6a:80:67:fd:dd:13:c5:4f:af:1e:31:bb:a1:98:9b
 
 Unfortunately, the hash algorithm used to display the fingerprint of the host
-key is MD5. Never mind.
+key is MD5 (or SHA1 depending on
+[compile options](https://github.com/mkj/dropbear/blob/master/signkey.c#L469)).
+Never mind.
 
 
 ## OpenSSH (*#3*) host key fingerprint
