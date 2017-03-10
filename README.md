@@ -104,8 +104,8 @@ installed system. If you're paranoid, you might read the optional final section.
 
 ## Remote unlock
 
-Connection to the Dropbear SSH server (*#2*) using the same SSH private key than
-the one used during the installation and the `unlock` command unlocks the disk.
+Connection to the Dropbear SSH server (*#2*) is made using the same SSH private
+key than the one used during the installation.
 
     $ ssh -o UserKnownHostsFile=/dev/null -o FingerprintHash=md5 -i ./conf/id_rsa root@172.16.111.13
     The authenticity of host '172.16.111.13 (172.16.111.13)' can't be established.
@@ -119,6 +119,10 @@ the one used during the installation and the `unlock` command unlocks the disk.
     BusyBox v1.22.1 (Ubuntu 1:1.22.0-19ubuntu2) built-in shell (ash)
     Enter 'help' for a list of built-in commands.
 
+One can use the `unlock` command (thanks to `conf/crypt_unlock.sh`) to unlock
+the disk. If a valid passphrase is entered, you'll be disconnected and the
+system will boot:
+
     # unlock
     Please unlock disk sda5_crypt: 
       WARNING: Failed to connect to lvmetad. Falling back to device scanning.
@@ -129,7 +133,11 @@ the one used during the installation and the `unlock` command unlocks the disk.
     cryptsetup: sda5_crypt set up successfully
     Connection to 172.16.111.13 closed.
 
-You'll be disconnected and the system will boot.
+The passphrase can also directly be written to a FIFO pipe, but no information
+whether the disk is successfully unlocked will be displayed:
+
+    # echo -ne 'Correct Horse Battery Staple' > /lib/cryptsetup/passfifo
+    # exit
 
 
 ## Connection to the unlocked system

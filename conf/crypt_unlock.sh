@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# The disk can be unlocked thanks to /lib/cryptsetup/passfifo. However, it
+# doesn't display whether the disk is actually unlocked.
+#
+# This script is thus optional.
 # Source: https://stinkyparkia.wordpress.com/2014/10/14/remote-unlocking-luks-encrypted-lvm-using-dropbear-ssh-in-ubuntu-server-14-04-1-with-static-ipst/
 
 PREREQ="dropbear"
