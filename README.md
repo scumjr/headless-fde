@@ -54,8 +54,8 @@ Write the following lines to `/etc/grub.d/40_custom`:
     # the 'exec tail' line above.
 
     menuentry "remote-fde" {
-            linux (hd0,1)/boot/netboot/linux
-            initrd (hd0,1)/boot/netboot/initrd.gz
+            linux (hd0,1)/netboot/linux
+            initrd (hd0,1)/netboot/initrd.gz
     }
 
 Change the `GRUB_DEFAULT` parameter in `/etc/default/grub` to force the boot to
