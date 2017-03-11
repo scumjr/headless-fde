@@ -1,5 +1,2 @@
-conf/id_rsa
-conf/id_rsa.pub
-conf/ssh_host_rsa_key
-conf/ssh_host_rsa_key.pub
 build/
+conf/keys/

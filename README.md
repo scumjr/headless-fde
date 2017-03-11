@@ -13,15 +13,10 @@ before the installation finishes to setup the packages which will allow to
 unlock the disk remotely at each reboot. This was successfully tested with
 Ubuntu 16.10.
 
-3 different SSH servers are involved:
-
-- *#1*. Temporary OpenSSH server, specific to the installation
-- *#2*. Dropbear server, used in conjunction with initramfs to unlock the disk
-- *#3*. OpenSSH server
-
-Servers *#1* and *#2* share the same `authorized_keys` (embedded in the custom
-`initrd.gz`), while the authentication on server *#3* is made with the
-login/password provided during the installation.
+The initramfs of the target system is configured to read the passphrase inside a
+TLS tunnel listening on TCP port 443 (thanks to
+[socat](http://www.dest-unreach.org/socat/)). Previous versions of this project
+used to install Dropbear, but it was overkill and less secure.
 
 
 
@@ -34,6 +29,9 @@ in `conf/preseed.cfg` and `conf/remote-fde.sh` before running `build.sh`:
     $ ls -lh build/initrd-remote-fde.gz build/linux
     -rw-rw-r-- 1 user user   37M  Mar  7 22:17 build/initrd-remote-fde.gz
     -rw-rw-r-- 1 user user  7,2M  Mar  7 19:58 build/linux
+
+The temporary SSH key used during the installation and the SSL certificates are
+generated in the `conf/keys/` directory.
 
 
 
@@ -74,10 +72,10 @@ Apply the changes and reboot to the custom `initrd.gz`:
 
 The server will boot on the custom `initrd.gz` and begin the installation.
 Since a few packages will be fetched and installed from the Internet, it can
-take a while until the SSH server *#1* is launched. Please note that the user is
+take a while until the SSH server is launched. Please note that the user is
 `installer`.
 
-    $ ssh -o UserKnownHostsFile=/dev/null -i ./conf/id_rsa installer@172.16.111.13
+    $ ssh -o UserKnownHostsFile=/dev/null -i ./conf/keys/id_rsa installer@172.16.111.13
     The authenticity of host '172.16.111.13 (172.16.111.13)' can't be established.
     RSA key fingerprint is SHA256:2a2c/hF2rcJ95OMqUKIazgY1UnxGyeVRkNVaiZk30RY.
     Are you sure you want to continue connecting (yes/no)? 
@@ -86,7 +84,7 @@ We don't want to remember the public key of this server since it's specific to
 the installation, hence the `UserKnownHostsFile` option. You should check that
 the fingerprint is the same than the one displayed by this command:
 
-    $ ssh-keygen -lf conf/ssh_host_rsa_key
+    $ ssh-keygen -lf conf/keys/ssh_host_rsa_key
     2048 SHA256:2a2c/hF2rcJ95OMqUKIazgY1UnxGyeVRkNVaiZk30RY user@laptop (RSA)
 
 Once logged in, the installation can be resumed as usual:
@@ -104,45 +102,22 @@ installed system. If you're paranoid, you might read the optional final section.
 
 ## Remote unlock
 
-Connection to the Dropbear SSH server (*#2*) is made using the same SSH private
-key than the one used during the installation.
+Just send the passphrase through the TLS tunnel:
 
-    $ ssh -o UserKnownHostsFile=/dev/null -o FingerprintHash=md5 -i ./conf/id_rsa root@172.16.111.13
-    The authenticity of host '172.16.111.13 (172.16.111.13)' can't be established.
-    ECDSA key fingerprint is MD5:6b:6a:80:67:fd:dd:13:c5:4f:af:1e:31:bb:a1:98:9b.
-    Are you sure you want to continue connecting (yes/no)? yes
-    Warning: Permanently added '172.16.111.13' (ECDSA) to the list of known hosts.
-    To unlock root partition, and maybe others like swap, run `cryptroot-unlock`
-    To unlock root-partition run unlock
+    echo -ne 'passphrase | \
+    socat STDIO OPENSSL:172.16.111.13:443,cert=conf/keys/client.pem,cafile=conf/keys/server.crt
 
+That's it! If the passphrase is correct, the disk will be unlocked and the
+system will continue to boot. If the commonName of the server certificate is not
+the same as the host given on the command line, socat fails with the error
+`certificate is valid but its commonName does not match hostname`. In that case,
+append the option: `,commonname=host` to the command line.
 
-    BusyBox v1.22.1 (Ubuntu 1:1.22.0-19ubuntu2) built-in shell (ash)
-    Enter 'help' for a list of built-in commands.
-
-One can use the `unlock` command (thanks to `conf/crypt_unlock.sh`) to unlock
-the disk. If a valid passphrase is entered, you'll be disconnected and the
-system will boot:
-
-    # unlock
-    Please unlock disk sda5_crypt: 
-      WARNING: Failed to connect to lvmetad. Falling back to device scanning.
-      Reading all physical volumes.  This may take a while...
-      Found volume group "ubuntu-vg" using metadata type lvm2
-      WARNING: Failed to connect to lvmetad. Falling back to device scanning.
-      2 logical volume(s) in volume group "ubuntu-vg" now active
-    cryptsetup: sda5_crypt set up successfully
-    Connection to 172.16.111.13 closed.
-
-The passphrase can also directly be written to a FIFO pipe, but no information
-whether the disk is successfully unlocked will be displayed:
-
-    # echo -ne 'Correct Horse Battery Staple' > /lib/cryptsetup/passfifo
-    # exit
 
 
 ## Connection to the unlocked system
 
-One can finally connect to the target system (*#3*) using the login/password specified
+One can finally connect to the target system using the login/password specified
 during the install. Yeah!
 
     $ ssh user@172.16.111.13
@@ -176,9 +151,9 @@ during the install. Yeah!
 During the installation, one can connect to the server within another SSH
 session to get a shell (just select the "Start shell" option) and display the
 fingerprints of the SSH host keys generated during the installation of the
-Dropbear and openssh-server packages:
+openssh-server packages:
 
-    $ ssh -o UserKnownHostsFile=/dev/null -i ./conf/id_rsa installer@172.16.111.13
+    $ ssh -o UserKnownHostsFile=/dev/null -i ./conf/keys/id_rsa installer@172.16.111.13
     ...
     "Start shell"
     ...
@@ -186,23 +161,6 @@ Dropbear and openssh-server packages:
     Enter 'help' for a list of built-in commands.
 
     ~ # chroot /target/ /bin/bash
-
-
-## Dropbear (*#2*) host key fingerprint
-
-    root@ubuntu:/# dropbearkey -y -f /etc/dropbear-initramfs/dropbear_ecdsa_host_key 
-    Public key portion is:
-    ecdsa-sha2-nistp521 AAAAE2VjZHNhLXNoYTItbmlzdHA1MjEAAAAIbmlzdHA1MjEAAACFBAH45+Y0Arf7NesVs+mH6l56kRPTSpBRaABbORHForyRz2aptNkfZ6T2qvF5B8ggzVSQL0T1zN3NFavfcBSh319/GQAzNOGpcj1RjP39dUtMehXbXr0fiEHkiguczU+5WEWuTId0Ryj4gZ+oKOekcJOu1NtEpYM8aUlDepFccUUr+Zv5SA== root@ubuntu
-    Fingerprint: md5 6b:6a:80:67:fd:dd:13:c5:4f:af:1e:31:bb:a1:98:9b
-
-Unfortunately, the hash algorithm used to display the fingerprint of the host
-key is MD5 (or SHA1 depending on
-[compile options](https://github.com/mkj/dropbear/blob/master/signkey.c#L469)).
-Never mind.
-
-
-## OpenSSH (*#3*) host key fingerprint
-
     root@ubuntu:/# ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub
     256 SHA256:zmFmL7MPexfOBiQlIaubEHbzV4PQOeZTJ6aq8BUi7M8 root@ubuntu (ECDSA)
 

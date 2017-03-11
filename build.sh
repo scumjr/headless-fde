@@ -19,21 +19,40 @@ function dl_initrd
 
 function generate_ssh_keys
 {
-	for f in conf/id_rsa conf/ssh_host_rsa_key; do
+	mkdir -p conf/keys/
+	for f in conf/keys/id_rsa conf/keys/ssh_host_rsa_key; do
 		if [ ! -f "$f" ]; then
 			ssh-keygen -t rsa -N '' -f "$f"
 		fi
 	done
 }
 
+function generate_certs
+{
+	mkdir -p conf/keys/
+	for filename in client server; do
+		[ -f conf/keys/$filename.key ] && continue
+		openssl genrsa -out conf/keys/$filename.key 4096
+		openssl req -new -key conf/keys/$filename.key -x509 -days 7300 -out conf/keys/$filename.crt
+		cat conf/keys/$filename.key conf/keys/$filename.crt >conf/keys/$filename.pem
+		chmod 600 conf/keys/$filename.key conf/keys/$filename.pem
+	done
+}
+
 function create_tree
 {
 	mkdir -p "$WORKDIR/root/.ssh/" "$WORKDIR/root/etc/ssh/"
-	cp conf/id_rsa.pub "$WORKDIR/root/.ssh/authorized_keys"
-	cp conf/ssh_host_rsa_key "$WORKDIR/root/etc/ssh/ssh_host_rsa_key"
+	cp conf/keys/id_rsa.pub "$WORKDIR/root/.ssh/authorized_keys"
+	cp conf/keys/ssh_host_rsa_key "$WORKDIR/root/etc/ssh/ssh_host_rsa_key"
 
 	mkdir -p "$WORKDIR/root/remote-fde/"
-	cp conf/crypt_unlock.sh conf/remote-fde.sh "$WORKDIR/root/remote-fde/"
+	cp conf/remote-fde.sh \
+	   conf/keys/server.pem \
+	   conf/keys/client.crt \
+	   conf/socat-unlock-hook.sh \
+	   conf/socat-unlock-script-bottom.sh \
+	   conf/socat-unlock-script-premount.sh \
+	   "$WORKDIR/root/remote-fde/"
 
 	cp conf/preseed.cfg "$WORKDIR/root/"
 }
@@ -60,6 +79,7 @@ function main
 
 	dl_initrd
 	generate_ssh_keys
+	generate_certs
 	create_tree
 	rebuild_initrd "$WORKDIR/initrd.gz" "$WORKDIR/initrd-remote-fde"
 }
