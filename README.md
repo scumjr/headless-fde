@@ -104,7 +104,7 @@ installed system. If you're paranoid, you might read the optional final section.
 
 Just send the passphrase through the TLS tunnel:
 
-    echo -ne 'passphrase | \
+    echo -ne 'passphrase' | \
     socat STDIO OPENSSL:172.16.111.13:443,cert=conf/keys/client.pem,cafile=conf/keys/server.crt
 
 That's it! If the passphrase is correct, the disk will be unlocked and the
