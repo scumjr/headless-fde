@@ -146,7 +146,9 @@ during the install. Yeah!
 
 
 
-# Optional tips for the paranoids
+# Various tips
+
+## SSH host key fingerprint
 
 During the installation, one can connect to the server within another SSH
 session to get a shell (just select the "Start shell" option) and display the
@@ -163,6 +165,58 @@ openssh-server packages:
     ~ # chroot /target/ /bin/bash
     root@ubuntu:/# ssh-keygen -lf /etc/ssh/ssh_host_ecdsa_key.pub
     256 SHA256:zmFmL7MPexfOBiQlIaubEHbzV4PQOeZTJ6aq8BUi7M8 root@ubuntu (ECDSA)
+
+
+## GRUB
+
+GRUB's configuration might slightly change depending on the partitioning scheme.
+For instance if `/boot` and `/` are on the same partition, linux and initrd
+paths must be prefixed by `/boot`:
+
+    menuentry "remote-fde" {
+                linux (hd0,1)/boot/netboot/linux
+                initrd (hd0,1)/boot/netboot/initrd.gz
+    }
+
+You might also have to change the root device and partition (`hd0,1`).
+
+
+## Interface name
+
+The
+[interface naming scheme](https://www.freedesktop.org/wiki/Software/systemd/PredictableNetworkInterfaceNames/)
+now depends on the server hardware (eg: `ens33` on VMware default virtual
+machines). If the interface name specified in
+`/etc/initramfs-tools/initramfs.conf` (set by `conf/remote-fde.sh`) doesn't
+match, network won't be available during boot. One can update GRUB's
+configuration to use the traditional interface naming scheme (`eth0`, etc.):
+
+    GRUB_CMDLINE_LINUX_DEFAULT="net.ifnames=0 biosdevname=0"
+
+
+## Debug
+
+It can be quite tricky to debug the unlock step since no debug information is
+available. In order to get a remote authenticated shell (once again thanks to
+socat), the following line can be added to `socat-unlock-script-premount.sh`:
+
+    socat OPENSSL-LISTEN:1337,fork,reuseaddr,cert=/etc/socat-unlock/server.pem,cafile=/etc/socat-unlock/client.crt EXEC:sh,stderr &
+
+Once a new `initrd` is generated thanks to `update-initramfs -u`, one can check
+its filesystem with `lsinitramfs`. For instance:
+
+    root@ubuntu:/# lsinitramfs /initrd.img | grep 'socat\|cryptsetup'
+    scripts/init-bottom/socat-unlock
+    scripts/init-premount/socat-unlock
+    usr/bin/socat
+    sbin/cryptsetup
+    etc/socat-unlock
+    etc/socat-unlock/server.pem
+    etc/socat-unlock/client.crt
+    lib/x86_64-linux-gnu/libcryptsetup.so.4.7.0
+    lib/x86_64-linux-gnu/libcryptsetup.so.4
+    lib/cryptsetup
+    lib/cryptsetup/askpass
 
 
 
